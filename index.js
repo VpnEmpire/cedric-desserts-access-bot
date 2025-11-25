@@ -8,7 +8,7 @@ if (!token) throw new Error("BOT_TOKEN не найден!");
 const bot = new TelegramBot(token, { polling: false });
 
 // Ссылка на оплату (1490₽ — фиксированно)
-const PAY_LINK = "https://yoomoney.ru/quickpay/confirm.xml?receiver=1167570&quickpay-form=donate&targets=Оплата%20доступа%20к%20рецептам&paymentType=AC&sum=1490";
+const PAY_LINK = "https://pay.yookassa.ru/quickpay/button?shopId=1167570&sum=1490&label=access";
 
 const PRIVATE_CHANNEL_LINK = "https://t.me/+8xj6sv0hZpY1Mzcy";
 
