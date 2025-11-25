@@ -1,41 +1,45 @@
 const TelegramBot = require("node-telegram-bot-api");
 
-const token = process.env.BOT_TOKEN; 
+// Токен берём из переменной окружения Vercel
+const token = process.env.BOT_TOKEN;
 if (!token) {
-  throw new Error("Нет переменной окружения BOT_TOKEN!");
+  throw new Error("BOT_TOKEN не найден! Задай его в настройках Vercel.");
 }
 
-// создаём бота БЕЗ polling — только webhook
+// Вебхук — polling отключён
 const bot = new TelegramBot(token, { polling: false });
 
-// Главная обработка webhook
+// Эту функцию вызывает webhook.js
 async function handleUpdate(update) {
   try {
-    if (update.message) {
+    // /start
+    if (update.message && update.message.text === "/start") {
       const chatId = update.message.chat.id;
 
-      if (update.message.text === "/start") {
-        await bot.sendMessage(
-          chatId,
-          "Добро пожаловать! 🎂\nЧтобы получить доступ к секретным десертам — нажмите кнопку ниже.",
-          {
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: "Оплатить доступ", callback_data: "HOW_TO_PAY" }]
-              ]
-            }
+      await bot.sendMessage(
+        chatId,
+        "Добро пожаловать! Чтобы получить доступ к секретным рецептам Седрика и другим десертам, нажми кнопку ниже:",
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "Оплатить доступ", callback_data: "HOW_TO_PAY" }]
+            ]
           }
-        );
-      }
+        }
+      );
     }
 
+    // Нажатие на кнопку
     if (update.callback_query) {
       const chatId = update.callback_query.message.chat.id;
+      const data = update.callback_query.data;
 
-      if (update.callback_query.data === "HOW_TO_PAY") {
+      if (data === "HOW_TO_PAY") {
         await bot.sendMessage(
           chatId,
-          "Чтобы оплатить доступ, перейдите по ссылке 👇\n(тут позже добавим Юкассу)"
+          "Для оплаты перейди по ссылке (ЮKassa / бот / сайт — сюда вставишь свою оплату):\n\n" +
+          "https://t.me/cedric_desserts_access_bot\n\n" +
+          "После оплаты я дам тебе доступ в закрытый канал с рецептами. ❤️"
         );
       }
     }
