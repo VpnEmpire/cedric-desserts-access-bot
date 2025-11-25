@@ -1,44 +1,45 @@
-const crypto = require("crypto");
+import crypto from "crypto";
 
-module.exports = async (req, res) => {
-  if (req.method !== "POST") return res.status(405).send("Method not allowed");
+export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    return res.status(200).json({ ok: true });
+  }
 
-  const SHOP_ID = process.env.SHOP_ID;
-  const YOOKASSA_KEY = process.env.YOOKASSA_KEY;
-
-  const chatId = req.body.chatId;
+  const { amount, description } = req.body;
 
   const idempotenceKey = crypto.randomUUID();
 
-  const payload = {
-    amount: {
-      value: "1490.00",
-      currency: "RUB"
-    },
-    confirmation: {
-      type: "redirect",
-      return_url: "https://t.me/cedric_desserts_access_bot"
-    },
-    description: `Оплата доступа, чат ${chatId}`,
-    metadata: { chatId }
-  };
+  try {
+    const response = await fetch("https://api.yookassa.ru/v3/payments", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotence-Key": idempotenceKey,
+        "Authorization":
+          "Basic " +
+          Buffer.from(
+            `${process.env.SHOP_ID}:${process.env.YOOKASSA_KEY}`
+          ).toString("base64"),
+      },
+      body: JSON.stringify({
+        amount: {
+          value: amount,
+          currency: "RUB",
+        },
+        confirmation: {
+          type: "redirect",
+          return_url: "https://t.me/cedric_desserts_access_bot",
+        },
+        capture: true,
+        description: description,
+      }),
+    });
 
-  const auth = Buffer.from(`${SHOP_ID}:${YOOKASSA_KEY}`).toString("base64");
+    const data = await response.json();
 
-  const response = await fetch("https://api.yookassa.ru/v3/payments", {
-    method: "POST",
-    headers: {
-      "Idempotence-Key": idempotenceKey,
-      "Content-Type": "application/json",
-      Authorization: `Basic ${auth}`
-    },
-    body: JSON.stringify(payload)
-  });
-
-  const data = await response.json();
-
-  return res.status(200).json({
-    payment_id: data.id,
-    confirmation_url: data.confirmation.confirmation_url
-  });
-};
+    return res.status(200).json(data);
+  } catch (error) {
+    console.error("ЮKassa error:", error);
+    return res.status(500).json({ error: true });
+  }
+}
