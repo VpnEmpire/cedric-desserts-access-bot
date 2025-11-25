@@ -5,7 +5,8 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   }
 
-  const { amount, description } = req.body;
+  // ФИКСИРОВАННАЯ сумма
+  const AMOUNT = "1490.00";
 
   const idempotenceKey = crypto.randomUUID();
 
@@ -23,7 +24,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         amount: {
-          value: amount,
+          value: AMOUNT,
           currency: "RUB",
         },
         confirmation: {
@@ -31,7 +32,7 @@ export default async function handler(req, res) {
           return_url: "https://t.me/cedric_desserts_access_bot",
         },
         capture: true,
-        description: description,
+        description: "Оплата доступа к рецептам Cedric Grolet",
       }),
     });
 
