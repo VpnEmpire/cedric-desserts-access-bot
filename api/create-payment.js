@@ -1,46 +1,35 @@
-import crypto from "crypto";
+const YooKassa = require("yookassa");
 
-export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(200).json({ ok: true });
-  }
+const shopId = process.env.SHOP_ID;
+const secretKey = process.env.YOOKASSA_KEY;
 
-  // ФИКСИРОВАННАЯ сумма
-  const AMOUNT = "1490.00";
+const yoo = new YooKassa({ shopId, secretKey });
 
-  const idempotenceKey = crypto.randomUUID();
-
+module.exports = async (req, res) => {
   try {
-    const response = await fetch("https://api.yookassa.ru/v3/payments", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Idempotence-Key": idempotenceKey,
-        "Authorization":
-          "Basic " +
-          Buffer.from(
-            `${process.env.SHOP_ID}:${process.env.YOOKASSA_KEY}`
-          ).toString("base64"),
+    if (req.method !== "POST")
+      return res.status(405).json({ error: "Method not allowed" });
+
+    const { chatId } = req.body;
+
+    const payment = await yoo.createPayment({
+      amount: {
+        value: "1490.00",
+        currency: "RUB",
       },
-      body: JSON.stringify({
-        amount: {
-          value: AMOUNT,
-          currency: "RUB",
-        },
-        confirmation: {
-          type: "redirect",
-          return_url: "https://t.me/cedric_desserts_access_bot",
-        },
-        capture: true,
-        description: "Оплата доступа к рецептам Cedric Grolet",
-      }),
+      confirmation: {
+        type: "redirect",
+        return_url: "https://t.me/cedric_desserts_access_bot",
+      },
+      description: `Оплата доступа (chatId ${chatId})`,
+      metadata: { chatId },
     });
 
-    const data = await response.json();
-
-    return res.status(200).json(data);
-  } catch (error) {
-    console.error("ЮKassa error:", error);
+    res.status(200).json({
+      confirmation_url: payment.confirmation.confirmation_url,
+    });
+  } catch (e) {
+    console.error("Ошибка создания платежа:", e);
     return res.status(500).json({ error: true });
   }
-}
+};
