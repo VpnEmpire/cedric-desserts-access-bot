@@ -20,23 +20,23 @@ async function handleUpdate(update) {
 
       await bot.sendMessage(
         chatId,
-        "Добро пожаловать! Чтобы получить доступ к секретным рецептам — нажмите кнопку:",
+        "Добро пожаловать! Чтобы получить доступ к секретным рецептам — нажми кнопку:",
         {
           reply_markup: {
             inline_keyboard: [
-              [{ text: "Оплатить доступ", callback_data: "PAY" }]
+              [{ text: "Оплатить доступ (1490 ₽)", callback_data: "PAY" }]
             ]
           }
         }
       );
     }
 
-    // кнопки
+    // обработка кнопок
     if (update.callback_query) {
       const chatId = update.callback_query.message.chat.id;
       const data = update.callback_query.data;
 
-      // кнопка "Оплатить"
+      // кнопка Оплатить
       if (data === "PAY") {
         const response = await axios.post(
           "https://cedric-desserts-access-bot.vercel.app/api/create-payment",
@@ -47,7 +47,7 @@ async function handleUpdate(update) {
 
         await bot.sendMessage(
           chatId,
-          `💳 Стоимость доступа: 1490 ₽\n\nПерейдите по ссылке для оплаты:\n${url}`
+          `💳 Стоимость доступа: 1490 ₽\n\nПерейди по ссылке для оплаты:\n${url}`
         );
       }
     }
