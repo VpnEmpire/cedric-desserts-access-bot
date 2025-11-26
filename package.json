@@ -6,7 +6,6 @@
   "type": "commonjs",
   "dependencies": {
     "axios": "^1.6.0",
-    "yookassa": "^3.1.0",
     "node-telegram-bot-api": "^0.61.0"
   }
 }
