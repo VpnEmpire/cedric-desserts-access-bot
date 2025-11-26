@@ -3,15 +3,14 @@ const axios = require("axios");
 
 // ENV
 const token = process.env.BOT_TOKEN;
-const SECRET_WEBHOOK_KEY = process.env.SECRET_WEBHOOK_KEY;
-
 if (!token) throw new Error("BOT_TOKEN отсутствует!");
 
+// Создаём бота (webhook режим)
 const bot = new TelegramBot(token, { polling: false });
 
 async function handleUpdate(update) {
   try {
-    // Команда /start
+    // /start
     if (update.message && update.message.text === "/start") {
       const chatId = update.message.chat.id;
 
@@ -28,7 +27,7 @@ async function handleUpdate(update) {
       );
     }
 
-    // Нажатие на кнопку
+    // Нажатие кнопки
     if (update.callback_query) {
       const chatId = update.callback_query.message.chat.id;
       const data = update.callback_query.data;
@@ -50,4 +49,4 @@ async function handleUpdate(update) {
   }
 }
 
-module.exports = { handleUpdate };
+module.exports = { bot, handleUpdate };
