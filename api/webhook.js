@@ -1,15 +1,33 @@
-const { handleUpdate } = require("../index.js");
+import { bot, handleUpdate } from "../index.js";
 
-module.exports = async (req, res) => {
+export const config = {
+  api: {
+    bodyParser: false, // <<< MUST HAVE ON VERCEL
+  },
+};
+
+export default async function handler(req, res) {
   try {
     if (req.method === "POST") {
-      await handleUpdate(req.body);
-      return res.status(200).json({ ok: true });
-    }
+      let body = "";
 
-    return res.status(200).send("Cedric desserts bot is running.");
+      // собираем raw-stream
+      req.on("data", chunk => {
+        body += chunk.toString();
+      });
+
+      req.on("end", async () => {
+        const update = JSON.parse(body);
+
+        await handleUpdate(update);
+        res.status(200).json({ ok: true });
+      });
+
+    } else {
+      res.status(200).send("Webhook works");
+    }
   } catch (err) {
-    console.error("Ошибка в webhook:", err);
+    console.error("Webhook error:", err);
     res.status(500).json({ ok: false });
   }
-};
+}
