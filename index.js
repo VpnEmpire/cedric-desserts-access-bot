@@ -1,64 +1,75 @@
 const TelegramBot = require("node-telegram-bot-api");
+const axios = require("axios");
 
-// === ТВОЙ ТОКЕН БОТА ===
-const BOT_TOKEN = "8511041890:AAGm0cQDDfQ4iiCORjA4A2kc5AHYMlsbnxY";
+// ENV
+const token = process.env.BOT_TOKEN;
+if (!token) throw new Error("BOT_TOKEN отсутствует!");
 
-// Telegram сам использует ЮKassa Live, привязанную через BotFather
-const PROVIDER_TOKEN = "Yookassa";
+// Создаём бота (webhook режим)
+const bot = new TelegramBot(token, { polling: false });
 
-const bot = new TelegramBot(BOT_TOKEN, { polling: true });
+async function handleUpdate(update) {
+  try {
+    // Обработка /start
+    if (update.message && update.message.text === "/start") {
+      const chatId = update.message.chat.id;
 
-// --- START ---
-bot.onText(/\/start/, async (msg) => {
-  const chatId = msg.chat.id;
+      await bot.sendMessage(
+        chatId,
+        "Добро пожаловать! Чтобы получить доступ к секретным рецептам — нажми кнопку ниже:",
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "Оплатить доступ (1490 ₽)", callback_data: "PAY" }]
+            ]
+          }
+        }
+      );
+    }
 
-  await bot.sendMessage(
-    chatId,
-    "Добро пожаловать! Чтобы получить доступ к секретным рецептам — нажми кнопку ниже:",
-    {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: "Оплатить доступ (1490 ₽)", callback_data: "PAY" }]
-        ]
+    // Нажатие на кнопку
+    if (update.callback_query) {
+      const chatId = update.callback_query.message.chat.id;
+      const data = update.callback_query.data;
+
+      if (data === "PAY") {
+        try {
+          // Создаём платёж через твой backend на Vercel
+          const response = await axios.post(
+            "https://cedric-desserts-access-bot.vercel.app/api/create-payment",
+            { chatId }
+          );
+
+          const confirmationUrl = response.data && response.data.confirmation_url;
+
+          if (!confirmationUrl) {
+            await bot.sendMessage(
+              chatId,
+              "Не удалось получить ссылку на оплату. Попробуй ещё раз чуть позже."
+            );
+            return;
+          }
+
+          await bot.sendMessage(
+            chatId,
+            `Для оплаты перейди по ссылке ниже:\n\n${confirmationUrl}`
+          );
+        } catch (error) {
+          console.error(
+            "Ошибка при создании платежа через API:",
+            error.response?.data || error
+          );
+
+          await bot.sendMessage(
+            chatId,
+            "Сейчас не получается создать платёж. Попробуй ещё раз чуть позже."
+          );
+        }
       }
     }
-  );
-});
-
-// --- Нажатие кнопки ---
-bot.on("callback_query", async (query) => {
-  const chatId = query.message.chat.id;
-
-  if (query.data === "PAY") {
-    await bot.sendInvoice(
-      chatId,
-      "Оплата доступа",
-      "После успешной оплаты доступ откроется автоматически ❤️",
-      "cedric_access_1490",      // payload
-      PROVIDER_TOKEN,            // Telegram → ЮKassa
-      "cedric-desserts",         // provider_data
-      "RUB",
-      [
-        {
-          label: "Доступ к рецептам",
-          amount: 149000 // 1490₽
-        }
-      ]
-    );
+  } catch (err) {
+    console.error("Ошибка обработки апдейта:", err);
   }
-});
+}
 
-// --- Проверка перед оплатой ---
-bot.on("pre_checkout_query", async (query) => {
-  await bot.answerPreCheckoutQuery(query.id, true);
-});
-
-// --- Успешная оплата ---
-bot.on("successful_payment", async (msg) => {
-  const chatId = msg.chat.id;
-
-  await bot.sendMessage(
-    chatId,
-    "🎉 Спасибо за оплату! Доступ открыт.\n\nВот ссылка:\n👉 https://t.me/c/…"
-  );
-});
+module.exports = { bot, handleUpdate };
