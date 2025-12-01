@@ -1,16 +1,18 @@
 const TelegramBot = require("node-telegram-bot-api");
+const axios = require("axios");
 
 const token = process.env.BOT_TOKEN;
 if (!token) throw new Error("BOT_TOKEN отсутствует!");
 
 const bot = new TelegramBot(token, { polling: false });
 
-// ТВОЯ РАБОЧАЯ ССЫЛКА ЮМАНИ
-const PAY_LINK = "https://yoomoney.ru/quickpay/confirm.xml?receiver=301100784648&quickpay-form=shop&targets=Оплата%20доступа&paymentType=AC&sum=1490";
+// Эта ссылка больше не работает, QuickPay отключён
+// Вместо неё используем create-payment
+// const PAY_LINK = "...";
 
 async function handleUpdate(update) {
   try {
-    // Команда /start
+    // /start
     if (update.message && update.message.text === "/start") {
       const chatId = update.message.chat.id;
 
@@ -20,17 +22,34 @@ async function handleUpdate(update) {
         {
           reply_markup: {
             inline_keyboard: [
-              [{ text: "Оплатить доступ (1490 ₽)", url: PAY_LINK }]
+              [
+                {
+                  text: "Оплатить доступ (1490 ₽)",
+                  callback_data: "PAY"
+                }
+              ]
             ]
           }
         }
       );
     }
 
-    // Webhook обрабатывает только уведомления о платеже
-    if (update && update.object) {
-      // Здесь будет обработка Webhook ЮMoney — добавим позже
-      console.log("Получен webhook от ЮMoney:", update);
+    // Кнопка Pay
+    if (update.callback_query) {
+      const chatId = update.callback_query.message.chat.id;
+
+      // создаём оплату НА ТВОЁМ БЭКЕНДЕ
+      const response = await axios.post(
+        "https://cedric-desserts-access-bot.vercel.app/api/create-payment",
+        { chatId }
+      );
+
+      const payUrl = response.data.confirmation_url;
+
+      await bot.sendMessage(
+        chatId,
+        `Перейди по ссылке для оплаты:\n\n${payUrl}`
+      );
     }
   } catch (err) {
     console.error("Ошибка обработки:", err);
