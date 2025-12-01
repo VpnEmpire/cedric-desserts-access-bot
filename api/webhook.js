@@ -1,26 +1,27 @@
-import { bot, handleUpdate } from "../index.js";
+const { handleUpdate } = require("../index.js");
 
-export const config = {
-  api: {
-    bodyParser: false, // <<< MUST HAVE ON VERCEL
-  },
-};
-
-export default async function handler(req, res) {
+module.exports = async (req, res) => {
   try {
     if (req.method === "POST") {
       let body = "";
 
-      // собираем raw-stream
+      // собираем тело запроса
       req.on("data", chunk => {
         body += chunk.toString();
       });
 
       req.on("end", async () => {
-        const update = JSON.parse(body);
+        try {
+          const update = JSON.parse(body);
 
-        await handleUpdate(update);
-        res.status(200).json({ ok: true });
+          // вызываем твою функцию обработки
+          await handleUpdate(update);
+
+          res.status(200).json({ ok: true });
+        } catch (err) {
+          console.error("JSON parse/update error:", err);
+          res.status(500).json({ ok: false });
+        }
       });
 
     } else {
@@ -30,4 +31,4 @@ export default async function handler(req, res) {
     console.error("Webhook error:", err);
     res.status(500).json({ ok: false });
   }
-}
+};
