@@ -1,75 +1,104 @@
 const TelegramBot = require("node-telegram-bot-api");
 const axios = require("axios");
 
-// ENV
-const token = process.env.BOT_TOKEN;
-if (!token) throw new Error("BOT_TOKEN отсутствует!");
+// =======================
+// ENV (только из Vercel!)
+// =======================
+const BOT_TOKEN = process.env.BOT_TOKEN;
+const SHOP_ID = process.env.SHOP_ID;
+const YOOKASSA_KEY = process.env.YOOKASSA_KEY;
+const ACCESS_CHANNEL = process.env.ACCESS_CHANNEL;   // например: -1001234567890
 
-// Создаём бота (webhook режим)
-const bot = new TelegramBot(token, { polling: false });
+if (!BOT_TOKEN || !SHOP_ID || !YOOKASSA_KEY) {
+  throw new Error("❌ Не заполнены ENV переменные в Vercel!");
+}
 
-async function handleUpdate(update) {
-  try {
-    // Обработка /start
-    if (update.message && update.message.text === "/start") {
-      const chatId = update.message.chat.id;
+// Запуск бота
+const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
-      await bot.sendMessage(
-        chatId,
-        "Добро пожаловать! Чтобы получить доступ к секретным рецептам — нажми кнопку ниже:",
+// =======================
+// /start
+// =======================
+bot.onText(/\/start/, async (msg) => {
+  const chatId = msg.chat.id;
+
+  await bot.sendMessage(
+    chatId,
+    "Добро пожаловать! Чтобы получить доступ к секретным рецептам — нажми кнопку ниже:",
+    {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "Оплатить доступ (1490 ₽)", callback_data: "pay" }]
+        ]
+      }
+    }
+  );
+});
+
+// =======================
+// Обработка кнопки
+// =======================
+bot.on("callback_query", async (query) => {
+  const chatId = query.message.chat.id;
+
+  if (query.data === "pay") {
+    try {
+      // Создание платежа в ЮKassa
+      const payment = await axios.post(
+        "https://api.yookassa.ru/v3/payments",
         {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: "Оплатить доступ (1490 ₽)", callback_data: "PAY" }]
-            ]
+          amount: {
+            value: "1490.00",
+            currency: "RUB"
+          },
+          confirmation: {
+            type: "redirect",
+            return_url: "https://t.me/" + query.message.chat.username
+          },
+          capture: true,
+          description: `Оплата доступа (chatId ${chatId})`,
+          metadata: { chatId }
+        },
+        {
+          auth: {
+            username: SHOP_ID,
+            password: YOOKASSA_KEY
           }
         }
       );
+
+      const url = payment.data.confirmation.confirmation_url;
+
+      await bot.sendMessage(
+        chatId,
+        `Для оплаты перейди по ссылке ниже:\n\n${url}`
+      );
+
+    } catch (err) {
+      console.error("Ошибка при создании платежа:", err.response?.data || err);
+      await bot.sendMessage(chatId, "⚠ Ошибка при создании платежа.");
     }
+  }
+});
 
-    // Нажатие на кнопку
-    if (update.callback_query) {
-      const chatId = update.callback_query.message.chat.id;
-      const data = update.callback_query.data;
+// =======================
+// Добавление в закрытый канал
+// (вызывается из вебхука на Vercel)
+// =======================
 
-      if (data === "PAY") {
-        try {
-          // Создаём платёж через твой backend на Vercel
-          const response = await axios.post(
-            "https://cedric-desserts-access-bot.vercel.app/api/create-payment",
-            { chatId }
-          );
+async function giveAccess(chatId) {
+  try {
+    await bot.sendMessage(chatId, "🎉 Оплата подтверждена! Доступ открыт.");
 
-          const confirmationUrl = response.data && response.data.confirmation_url;
+    await bot.inviteChatMember(ACCESS_CHANNEL, chatId);
 
-          if (!confirmationUrl) {
-            await bot.sendMessage(
-              chatId,
-              "Не удалось получить ссылку на оплату. Попробуй ещё раз чуть позже."
-            );
-            return;
-          }
-
-          await bot.sendMessage(
-            chatId,
-            `Для оплаты перейди по ссылке ниже:\n\n${confirmationUrl}`
-          );
-        } catch (error) {
-          console.error(
-            "Ошибка при создании платежа через API:",
-            error.response?.data || error
-          );
-
-          await bot.sendMessage(
-            chatId,
-            "Сейчас не получается создать платёж. Попробуй ещё раз чуть позже."
-          );
-        }
-      }
-    }
-  } catch (err) {
-    console.error("Ошибка обработки апдейта:", err);
+    await bot.sendMessage(
+      chatId,
+      `👉 Переходи в закрытый канал:\nhttps://t.me/${ACCESS_CHANNEL.replace("-100", "")}`
+    );
+  } catch (e) {
+    console.error("Ошибка добавления в канал:", e);
   }
 }
 
-module.exports = { bot, handleUpdate };
+module.exports = { bot, giveAccess };
