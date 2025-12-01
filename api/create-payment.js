@@ -8,13 +8,11 @@ module.exports = async (req, res) => {
     const secretKey = process.env.YOOKASSA_KEY;
 
     if (!shopId || !secretKey) {
-      return res.status(500).json({
-        error: "Отсутствуют SHOP_ID или YOOKASSA_KEY в переменных окружения"
-      });
+      return res.status(500).json({ error: "Нет SHOP_ID или YOOKASSA_KEY" });
     }
 
-    // --- FIX BASIC AUTH FOR VERCEL ---
-    const authHeader = "Basic " + Buffer.from(`${shopId}:${secretKey}`).toString("base64");
+    // BASIC AUTH
+    const authString = Buffer.from(`${shopId}:${secretKey}`).toString("base64");
 
     const payment = await axios.post(
       "https://api.yookassa.ru/v3/payments",
@@ -34,21 +32,21 @@ module.exports = async (req, res) => {
       {
         headers: {
           "Content-Type": "application/json",
-          "Authorization": authHeader    // <---- Важное исправление!
+          "Authorization": `Basic ${authString}`
         },
-        timeout: 15000 // защита от socket hang up
+        timeout: 15000
       }
     );
 
-    res.status(200).json({
-      confirmation_url: payment.data.confirmation.confirmation_url
-    });
+    const url = payment.data.confirmation.confirmation_url;
+
+    res.status(200).json({ confirmation_url: url });
 
   } catch (error) {
-    console.error("Ошибка при создании платежа:", error.response?.data || error);
+    console.error("Ошибка при создании платежа:", error?.response?.data || error);
     res.status(500).json({
       error: "Ошибка при создании платежа",
-      details: error.response?.data || error.toString()
+      details: error?.response?.data
     });
   }
 };
